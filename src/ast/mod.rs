@@ -185,7 +185,7 @@ impl<'ctx> Into<BasicMetadataTypeEnum<'ctx>> for LLVMType<'ctx> {
         use LLVMType::*;
 
         match self {
-            Void(_) => panic!(),
+            Void(_) => unreachable!(),
             Bool(v) | I64(v) => v.into(),
             F64(v) => v.into(),
             Pointer(p) => p.into(),

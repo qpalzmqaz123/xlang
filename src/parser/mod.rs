@@ -313,8 +313,14 @@ impl Parser {
         let ret_tok = require_next!(self);
         self.lexer.advance();
 
-        // Expr
-        let expr = self.parse_expr()?;
+        let next = require_next!(self);
+        let expr = match next.value {
+            // Return void
+            TokenValue::Semicolon => None,
+
+            // Return expr
+            _ => Some(self.parse_expr()?),
+        };
 
         Ok(ReturnNode {
             ret: expr,

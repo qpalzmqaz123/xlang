@@ -10,7 +10,7 @@ use super::{ExprNode, LLVMType, LLVMValue};
 
 #[derive(Debug, Clone)]
 pub struct ReturnNode {
-    pub ret: ExprNode,
+    pub ret: Option<ExprNode>,
     pub position: Position,
 }
 
@@ -25,26 +25,30 @@ impl<'ctx, 'md, 'bd> ReturnNode {
     ) -> Result<()> {
         use LLVMValue::*;
 
-        let ret_val = self.ret.compile(ctx, module, builder, vtb, ret_ty)?;
-        if ret_ty != &ret_val.get_type() {
-            return Err(error::semanteme!(
-                self.position.module,
-                self.position.line,
-                self.position.col,
-                "Type mismatch with function return type"
-            ));
-        }
+        if let Some(ret) = &self.ret {
+            let ret_val = ret.compile(ctx, module, builder, vtb, ret_ty)?;
+            if ret_ty != &ret_val.get_type() {
+                return Err(error::semanteme!(
+                    self.position.module,
+                    self.position.line,
+                    self.position.col,
+                    "Type mismatch with function return type"
+                ));
+            }
 
-        let _ = match ret_val {
-            Bool(v) | I64(v) => {
-                builder.build_return(Some(&v));
-            }
-            F64(v) => {
-                builder.build_return(Some(&v));
-            }
-            Pointer(v) => {
-                builder.build_return(Some(&v.get_pointer_value()));
-            }
+            let _ = match ret_val {
+                Bool(v) | I64(v) => {
+                    builder.build_return(Some(&v));
+                }
+                F64(v) => {
+                    builder.build_return(Some(&v));
+                }
+                Pointer(v) => {
+                    builder.build_return(Some(&v.get_pointer_value()));
+                }
+            };
+        } else {
+            builder.build_return(None);
         };
 
         Ok(())

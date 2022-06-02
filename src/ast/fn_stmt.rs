@@ -32,6 +32,18 @@ impl<'ctx, 'md> FnStmtNode {
                     (names, types)
                 });
 
+        // Verify arg types
+        for ty in &arg_types {
+            if let LLVMType::Void(_) = ty {
+                return Err(error::semanteme!(
+                    self.name.position.module,
+                    self.name.position.line,
+                    self.name.position.col,
+                    "Function arguments cannot be void"
+                ));
+            }
+        }
+
         // Prepare return type
         let ret_ty = self.ret_ty.compile(ctx)?;
 
