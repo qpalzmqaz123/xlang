@@ -1,7 +1,7 @@
 mod traits;
 mod var_table;
 
-use std::{mem::ManuallyDrop, ops::Deref};
+use std::{any::Any, mem::ManuallyDrop, ops::Deref};
 
 use inkwell::{
     context::Context as InkwellContext,
@@ -21,11 +21,35 @@ pub use var_table::VarTable;
 
 use self::traits::{AddLLVMGlobal, LLVMMulti, LLVMSingle};
 
+#[macro_export]
+macro_rules! add_global_function {
+    ($ctx:expr, $name:expr, |$($arg_name:ident: $arg_ty:ty),*|:$ret_ty:ty $body:block) => {{
+        // Generate boxed closure, because rust dynamic trait use double pointer, which size is 16, so we use double layer box
+        let closure: Box<Box<dyn Fn($($arg_ty),*) -> $ret_ty>> = Box::new(Box::new(move |$($arg_name: $arg_ty),*| -> $ret_ty {
+            $body
+        }));
+
+        // Static wrapper function, first argument is boxed dyn Fn pointer
+        extern "C" fn wrapper(boxed_closure_addr: usize, $($arg_name: $arg_ty),*) -> $ret_ty {
+            let closure = boxed_closure_addr as *mut Box<dyn Fn($($arg_ty),*) -> $ret_ty>;
+            unsafe {
+                (*closure)($($arg_name),*)
+            }
+        }
+
+        // Get boxed closure address
+        let addr = closure.as_ref() as *const _ as usize;
+
+        $ctx.add_global_rust_closure::<($($arg_ty),*), $ret_ty>($name, addr, Box::new(closure), wrapper as usize)
+    }};
+}
+
 pub struct Context {
     ll_ctx: InkwellContext,
     ll_mod: ManuallyDrop<InkwellModule<'static>>,
     ll_ee: ManuallyDrop<ExecutionEngine<'static>>,
     init_vartable: VarTable<'static>,
+    closure_list: Vec<Box<dyn Any>>,
 }
 
 impl Context {
@@ -52,6 +76,7 @@ impl Context {
             ll_mod,
             ll_ee,
             init_vartable: VarTable::new(),
+            closure_list: vec![],
         })
     }
 
@@ -102,6 +127,82 @@ impl Context {
 
         // Add function to execution engine
         engine.add_global_mapping(&fn_val, addr);
+
+        Ok(())
+    }
+
+    pub fn add_global_rust_closure<A, R>(
+        &mut self,
+        name: &str,
+        boxed_closure_addr: usize,
+        boxed_closure_any: Box<dyn Any>,
+        wrapper_c_fn_addr: usize,
+    ) -> Result<()>
+    where
+        A: LLVMMulti<'static>,
+        R: LLVMSingle<'static>,
+    {
+        // Convert context lifetime to static
+        let ctx: &'static InkwellContext = unsafe { std::mem::transmute(&self.ll_ctx) };
+
+        // Create builder
+        let builder = ctx.create_builder();
+
+        // Get module reference
+        let module = self.ll_mod.deref();
+
+        // Create super function type and value, this function is called directly by xlang code
+        let super_fn_ty = R::fn_type(ctx, &A::param_types(ctx));
+        let super_fn_val = module.add_function(name, super_fn_ty, None);
+
+        // Create basic block
+        builder.position_at_end(ctx.append_basic_block(super_fn_val, ""));
+
+        // Generate wrapper function type
+        let super_param_types = A::param_types(ctx);
+        let wrapper_param_types = [vec![ctx.i64_type().into()], super_param_types].concat();
+        let wrapper_fn_ty =
+            R::fn_type(ctx, &wrapper_param_types).ptr_type(inkwell::AddressSpace::Generic);
+
+        // Convert wrapper_c_fn_addr to wrapper function pointer
+        let wrapper_fn_ptr = builder.build_int_to_ptr(
+            ctx.i64_type().const_int(wrapper_c_fn_addr as _, false),
+            wrapper_fn_ty,
+            "",
+        );
+
+        // Genrate wrapper function params
+        let super_params = super_fn_val
+            .get_param_iter()
+            .map(|v| v.into())
+            .collect::<Vec<_>>();
+        let params = [
+            vec![ctx
+                .i64_type()
+                .const_int(boxed_closure_addr as _, false)
+                .into()],
+            super_params,
+        ]
+        .concat();
+
+        // Convert pointer to callable value
+        let rust_fn_val = inkwell::values::CallableValue::try_from(wrapper_fn_ptr)
+            .map_err(|_| error::internal!("Failed to convert pointer to callable value"))?;
+
+        // Call wrapper function
+        let fn_ret = builder
+            .build_call(rust_fn_val, &params, "")
+            .try_as_basic_value()
+            .left()
+            .ok_or(error::internal!(
+                "Failed to convert callable value to basic value"
+            ))?;
+
+        // Return result
+        builder.build_return(Some(&fn_ret));
+
+        // Save closure
+        self.closure_list.push(boxed_closure_any);
 
         Ok(())
     }

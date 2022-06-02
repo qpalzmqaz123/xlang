@@ -15,6 +15,7 @@ impl<'ctx> TypeNode {
             TypeNode::Ident(ident) => {
                 let ty = ident.as_ref();
                 match ty {
+                    "void" => LLVMType::Void(ctx.void_type()),
                     "bool" => LLVMType::Bool(ctx.bool_type()),
                     "i64" => LLVMType::I64(ctx.i64_type()),
                     "f64" => LLVMType::F64(ctx.f64_type()),

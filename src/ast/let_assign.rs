@@ -1,6 +1,10 @@
 use inkwell::{builder::Builder, context::Context, module::Module};
 
-use crate::{ast::LLVMType, context::VarTable, error::Result};
+use crate::{
+    ast::LLVMType,
+    context::VarTable,
+    error::{self, Result},
+};
 
 use super::{AssignNode, LLVMPointerValue, LLVMValue, TypeNode};
 
@@ -23,6 +27,14 @@ impl<'ctx, 'md, 'bd> LetAssignNode {
 
         // Alloc ptr
         let ptr = match &ty {
+            LLVMType::Void(_) => {
+                return Err(error::semanteme!(
+                    self.assign.ident.position.module,
+                    self.assign.ident.position.line,
+                    self.assign.ident.position.col,
+                    "Cannot assign to void type"
+                ))
+            }
             LLVMType::Bool(ty) | LLVMType::I64(ty) => builder.build_alloca(ty.clone(), name),
             LLVMType::F64(ty) => builder.build_alloca(ty.clone(), name),
             LLVMType::Pointer(ty) => builder.build_alloca(ty.get_pointer_type(), name),

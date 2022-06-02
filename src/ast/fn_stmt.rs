@@ -67,6 +67,14 @@ impl<'ctx, 'md> FnStmtNode {
 
             // Alloc arg ptr
             let ptr = match &arg_ty {
+                LLVMType::Void(_) => {
+                    return Err(error::semanteme!(
+                        self.name.position.module,
+                        self.name.position.line,
+                        self.name.position.col,
+                        "Cannot use void type as function param"
+                    ))
+                }
                 LLVMType::Bool(ty) | LLVMType::I64(ty) => {
                     builder.build_alloca(ty.clone(), arg_name)
                 }

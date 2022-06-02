@@ -23,7 +23,7 @@ mod unary;
 use inkwell::{
     types::{
         AnyTypeEnum, BasicMetadataTypeEnum, BasicType, FloatType, FunctionType, IntType,
-        PointerType,
+        PointerType, VoidType,
     },
     values::{BasicMetadataValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue},
 };
@@ -90,6 +90,7 @@ impl<'ctx> Into<BasicMetadataValueEnum<'ctx>> for LLVMValue<'ctx> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LLVMPointerValue<'ctx> {
+    Void(PointerValue<'ctx>),
     Bool(PointerValue<'ctx>),
     I64(PointerValue<'ctx>),
     F64(PointerValue<'ctx>),
@@ -99,6 +100,7 @@ pub enum LLVMPointerValue<'ctx> {
 impl<'ctx> LLVMPointerValue<'ctx> {
     pub fn from_pointer_value(v: PointerValue<'ctx>, ty: &LLVMPointerType) -> Self {
         match ty {
+            LLVMPointerType::Void(_) => LLVMPointerValue::Void(v),
             LLVMPointerType::Bool(_) => LLVMPointerValue::Bool(v),
             LLVMPointerType::I64(_) => LLVMPointerValue::I64(v),
             LLVMPointerType::F64(_) => LLVMPointerValue::F64(v),
@@ -110,6 +112,7 @@ impl<'ctx> LLVMPointerValue<'ctx> {
 
     pub fn get_type(&self) -> LLVMPointerType<'ctx> {
         match self {
+            LLVMPointerValue::Void(v) => LLVMPointerType::Bool(v.get_type()),
             LLVMPointerValue::Bool(v) => LLVMPointerType::Bool(v.get_type()),
             LLVMPointerValue::I64(v) => LLVMPointerType::I64(v.get_type()),
             LLVMPointerValue::F64(v) => LLVMPointerType::F64(v.get_type()),
@@ -121,7 +124,7 @@ impl<'ctx> LLVMPointerValue<'ctx> {
         use LLVMPointerValue::*;
 
         match self {
-            Bool(v) | I64(v) | F64(v) => v.clone(),
+            Void(v) | Bool(v) | I64(v) | F64(v) => v.clone(),
             Pointer(v) => v.get_pointer_value(),
         }
     }
@@ -132,7 +135,7 @@ impl<'ctx> Into<BasicMetadataValueEnum<'ctx>> for LLVMPointerValue<'ctx> {
         use LLVMPointerValue::*;
 
         match self {
-            Bool(v) | I64(v) | F64(v) => BasicMetadataValueEnum::PointerValue(v),
+            Void(v) | Bool(v) | I64(v) | F64(v) => BasicMetadataValueEnum::PointerValue(v),
             Pointer(v) => (*v).into(),
         }
     }
@@ -140,6 +143,7 @@ impl<'ctx> Into<BasicMetadataValueEnum<'ctx>> for LLVMPointerValue<'ctx> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LLVMType<'ctx> {
+    Void(VoidType<'ctx>),
     Bool(IntType<'ctx>),
     I64(IntType<'ctx>),
     F64(FloatType<'ctx>),
@@ -156,6 +160,7 @@ impl<'ctx> LLVMType<'ctx> {
             .collect::<Vec<_>>();
 
         match self {
+            Void(v) => v.fn_type(&llvm_param_types, is_var_args),
             Bool(v) | I64(v) => v.fn_type(&llvm_param_types, is_var_args),
             F64(v) => v.fn_type(&llvm_param_types, is_var_args),
             Pointer(v) => v.fn_type(&llvm_param_types, is_var_args),
@@ -166,6 +171,7 @@ impl<'ctx> LLVMType<'ctx> {
         use LLVMType::*;
 
         match self {
+            Void(_) => LLVMPointerType::Void(ptr),
             Bool(_) => LLVMPointerType::Bool(ptr),
             I64(_) => LLVMPointerType::I64(ptr),
             F64(_) => LLVMPointerType::F64(ptr),
@@ -179,6 +185,7 @@ impl<'ctx> Into<BasicMetadataTypeEnum<'ctx>> for LLVMType<'ctx> {
         use LLVMType::*;
 
         match self {
+            Void(_) => panic!(),
             Bool(v) | I64(v) => v.into(),
             F64(v) => v.into(),
             Pointer(p) => p.into(),
@@ -188,6 +195,7 @@ impl<'ctx> Into<BasicMetadataTypeEnum<'ctx>> for LLVMType<'ctx> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LLVMPointerType<'ctx> {
+    Void(PointerType<'ctx>),
     Bool(PointerType<'ctx>),
     I64(PointerType<'ctx>),
     F64(PointerType<'ctx>),
@@ -203,7 +211,7 @@ impl<'ctx> LLVMPointerType<'ctx> {
         use LLVMPointerType::*;
 
         match self {
-            Bool(v) | I64(v) | F64(v) => v.fn_type(param_types, is_var_args),
+            Void(v) | Bool(v) | I64(v) | F64(v) => v.fn_type(param_types, is_var_args),
             Pointer(v) => v.fn_type(param_types, is_var_args),
         }
     }
@@ -212,7 +220,7 @@ impl<'ctx> LLVMPointerType<'ctx> {
         use LLVMPointerType::*;
 
         match self {
-            Bool(v) | I64(v) | F64(v) => v.clone(),
+            Void(v) | Bool(v) | I64(v) | F64(v) => v.clone(),
             Pointer(v) => v.get_pointer_type(),
         }
     }
@@ -222,6 +230,10 @@ impl<'ctx> LLVMPointerType<'ctx> {
 
         let any_ty = self.get_pointer_type().get_element_type();
         match self {
+            Void(_) => match any_ty {
+                AnyTypeEnum::VoidType(v) => LLVMType::Void(v),
+                _ => unreachable!(),
+            },
             Bool(_) => match any_ty {
                 AnyTypeEnum::IntType(v) => LLVMType::Bool(v),
                 _ => unreachable!(),
@@ -243,6 +255,10 @@ impl<'ctx> LLVMPointerType<'ctx> {
 
         let any_ty = self.get_pointer_type().get_element_type();
         match self {
+            Void(_) => match any_ty {
+                AnyTypeEnum::PointerType(v) => LLVMPointerType::Void(v),
+                _ => unreachable!(),
+            },
             Bool(_) => match any_ty {
                 AnyTypeEnum::PointerType(v) => LLVMPointerType::Bool(v),
                 _ => unreachable!(),
@@ -265,7 +281,7 @@ impl<'ctx> Into<BasicMetadataTypeEnum<'ctx>> for LLVMPointerType<'ctx> {
         use LLVMPointerType::*;
 
         match self {
-            Bool(v) | I64(v) | F64(v) => v.into(),
+            Void(v) | Bool(v) | I64(v) | F64(v) => v.into(),
             Pointer(v) => (*v).into(),
         }
     }
