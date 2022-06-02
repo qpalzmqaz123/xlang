@@ -66,6 +66,16 @@ macro_rules! require_next {
     }};
 }
 
+macro_rules! require_next2 {
+    ($self:ident) => {{
+        let next = $self
+            .lexer
+            .next2()
+            .ok_or(error::internal!("Missing token"))?;
+        next
+    }};
+}
+
 macro_rules! require_next_token {
     ($self:ident, $tok_val:pat, $($arg:tt)*) => {{
         require_next_token!($self, $tok_val => (), $($arg)*)
@@ -262,7 +272,26 @@ impl Parser {
                 node
             }
             TokenValue::Ident(_) => {
-                let node = BlockStmtNode::Assign(self.parse_assign()?);
+                let next2 = require_next2!(self);
+                let node = match next2.value {
+                    // IDENT = EXPR
+                    TokenValue::Assign => BlockStmtNode::Assign(self.parse_assign()?),
+
+                    // Function call
+                    TokenValue::LeftParen => {
+                        let ident = self.parse_ident()?;
+                        BlockStmtNode::FnCall(self.parse_function_call_expr(ident)?)
+                    }
+
+                    _ => {
+                        return Err(error::syntax!(
+                            next2.position.module,
+                            next2.position.line,
+                            next2.position.col,
+                            "Expect '=' or '("
+                        ))
+                    }
+                };
 
                 // ';'
                 require_next_token!(self, TokenValue::Semicolon, "Expect ';'");

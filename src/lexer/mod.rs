@@ -127,6 +127,10 @@ impl Lexer {
         self.toks.get(self.current_index).cloned()
     }
 
+    pub fn next2(&self) -> Option<Token> {
+        self.toks.get(self.current_index + 1).cloned()
+    }
+
     pub fn prev(&self) -> Option<Token> {
         if self.current_index > 0 {
             self.toks.get(self.current_index - 1).cloned()

@@ -1,6 +1,6 @@
 use inkwell::{builder::Builder, context::Context, module::Module, values::FunctionValue};
 
-use crate::{context::VarTable, error::Result};
+use crate::{context::VarTable, error::Result, FnCallNode};
 
 use super::{AssignNode, BranchNode, LLVMType, LetAssignNode, ReturnNode};
 
@@ -10,6 +10,7 @@ pub enum BlockStmtNode {
     Return(ReturnNode),
     Assign(AssignNode),
     Branch(BranchNode),
+    FnCall(FnCallNode),
 }
 
 impl<'ctx, 'md, 'bd> BlockStmtNode {
@@ -27,6 +28,9 @@ impl<'ctx, 'md, 'bd> BlockStmtNode {
             Self::Return(node) => node.compile(ctx, module, builder, vtb, ret_ty)?,
             Self::Assign(node) => node.compile(ctx, module, builder, vtb)?,
             Self::Branch(node) => node.compile(ctx, module, fn_val, builder, vtb, ret_ty)?,
+            Self::FnCall(node) => node
+                .compile(ctx, module, builder, vtb, ret_ty)
+                .map(|_| ())?,
         }
 
         Ok(())
