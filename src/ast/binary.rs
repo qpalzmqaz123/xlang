@@ -6,7 +6,7 @@ use crate::{
     lexer::{Operator, Position},
 };
 
-use super::{ExprNode, LLVMType, LLVMValue};
+use super::{ExprNode, LLVMValue};
 
 #[derive(Debug, Clone)]
 pub struct BinaryNode {
@@ -23,12 +23,27 @@ impl<'ctx, 'md, 'bd> BinaryNode {
         module: &'md Module<'ctx>,
         builder: &'bd Builder<'ctx>,
         vtb: &mut VarTable<'ctx>,
-        ty: &LLVMType<'ctx>,
     ) -> Result<LLVMValue<'ctx>> {
         use Operator::*;
 
-        let left = self.left.compile(ctx, module, builder, vtb, ty)?;
-        let right = self.right.compile(ctx, module, builder, vtb, ty)?;
+        let left = self
+            .left
+            .compile(ctx, module, builder, vtb)?
+            .ok_or(error::semanteme!(
+                self.op_position.module,
+                self.op_position.line,
+                self.op_position.col,
+                "Left side of binary operator cannot be void",
+            ))?;
+        let right = self
+            .right
+            .compile(ctx, module, builder, vtb)?
+            .ok_or(error::semanteme!(
+                self.op_position.module,
+                self.op_position.line,
+                self.op_position.col,
+                "Right side of binary operator cannot be void",
+            ))?;
         let res = match left {
             LLVMValue::Bool(left) => match right {
                 LLVMValue::Bool(right) => {

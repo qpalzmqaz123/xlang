@@ -6,7 +6,7 @@ use crate::{
     lexer::{Operator, Position},
 };
 
-use super::{ExprNode, LLVMType, LLVMValue};
+use super::{ExprNode, LLVMValue};
 
 #[derive(Debug, Clone)]
 pub struct UnaryNode {
@@ -22,12 +22,19 @@ impl<'ctx, 'md, 'bd> UnaryNode {
         module: &'md Module<'ctx>,
         builder: &'bd Builder<'ctx>,
         vtb: &mut VarTable<'ctx>,
-        ty: &LLVMType<'ctx>,
     ) -> Result<LLVMValue<'ctx>> {
         use LLVMValue::*;
         use Operator::*;
 
-        let val = self.expr.compile(ctx, module, builder, vtb, ty)?;
+        let val = self
+            .expr
+            .compile(ctx, module, builder, vtb)?
+            .ok_or(error::semanteme!(
+                self.op_position.module,
+                self.op_position.line,
+                self.op_position.col,
+                "Value of unary operator cannot be void",
+            ))?;
 
         let val = match self.op {
             Minus => match val {

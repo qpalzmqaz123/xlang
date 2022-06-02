@@ -42,7 +42,15 @@ impl<'ctx, 'md, 'bd> AssignNode {
             }
         };
 
-        let right = self.expr.compile(ctx, module, builder, vtb, &left_ty)?;
+        let right = self
+            .expr
+            .compile(ctx, module, builder, vtb)?
+            .ok_or(error::semanteme!(
+                self.ident.position.module,
+                self.ident.position.line,
+                self.ident.position.col,
+                "Right side of assignment cannot be void",
+            ))?;
 
         if left_ty != right.get_type() {
             return Err(error::semanteme!(

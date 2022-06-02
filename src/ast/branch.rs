@@ -26,8 +26,15 @@ impl<'ctx, 'md, 'bd> BranchNode {
         vtb: &mut VarTable<'ctx>,
         ret_ty: &LLVMType<'ctx>,
     ) -> Result<()> {
-        let cond_ty = LLVMType::Bool(ctx.bool_type());
-        let cond_res = self.cond.compile(ctx, module, builder, vtb, &cond_ty)?;
+        let cond_res = self
+            .cond
+            .compile(ctx, module, builder, vtb)?
+            .ok_or(error::semanteme!(
+                self.position.module,
+                self.position.line,
+                self.position.col,
+                "Condition of branch cannot be void",
+            ))?;
 
         let then_bb = ctx.append_basic_block(fn_val, "then");
         let else_bb = ctx.append_basic_block(fn_val, "else");

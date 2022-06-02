@@ -41,8 +41,7 @@ impl<'ctx, 'md, 'bd> LetAssignNode {
         };
 
         // Save ptr to var_map
-        let ptr_ty = ty.as_ref_type(ptr.get_type());
-        let ptr_val = LLVMPointerValue::from_pointer_value(ptr, &ptr_ty);
+        let ptr_val = LLVMPointerValue::from_pointer_value(ptr);
         vtb.insert(name.to_string(), LLVMValue::Pointer(ptr_val));
 
         // Compile assign

@@ -28,9 +28,7 @@ impl<'ctx, 'md, 'bd> BlockStmtNode {
             Self::Return(node) => node.compile(ctx, module, builder, vtb, ret_ty)?,
             Self::Assign(node) => node.compile(ctx, module, builder, vtb)?,
             Self::Branch(node) => node.compile(ctx, module, fn_val, builder, vtb, ret_ty)?,
-            Self::FnCall(node) => node
-                .compile(ctx, module, builder, vtb, ret_ty)
-                .map(|_| ())?,
+            Self::FnCall(node) => node.compile(ctx, module, builder, vtb).map(|_| ())?,
         }
 
         Ok(())

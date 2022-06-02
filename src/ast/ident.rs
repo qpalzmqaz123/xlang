@@ -6,7 +6,7 @@ use crate::{
     lexer::Position,
 };
 
-use super::{LLVMType, LLVMValue};
+use super::LLVMValue;
 
 #[derive(Debug, Clone)]
 pub struct IdentNode {
@@ -32,7 +32,6 @@ impl<'ctx, 'bd> IdentNode {
         _: &'ctx Context,
         builder: &'bd Builder<'ctx>,
         vtb: &mut VarTable<'ctx>,
-        _: &LLVMType<'ctx>,
     ) -> Result<LLVMValue<'ctx>> {
         use LLVMValue::*;
 
@@ -56,9 +55,8 @@ impl<'ctx, 'bd> IdentNode {
             }
         };
 
-        let elem_ty = ptr_val.get_type().get_element_type();
         let val = builder.build_load(ptr_val.get_pointer_value(), "");
 
-        Ok(LLVMValue::from_basic_value_enum(val, &elem_ty))
+        Ok(LLVMValue::from_basic_value_enum(val))
     }
 }

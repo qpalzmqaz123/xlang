@@ -45,22 +45,17 @@ pub enum LLVMValue<'ctx> {
 }
 
 impl<'ctx> LLVMValue<'ctx> {
-    pub fn from_basic_value_enum(v: BasicValueEnum<'ctx>, ty: &LLVMType) -> Self {
+    pub fn from_basic_value_enum(v: BasicValueEnum<'ctx>) -> Self {
         match v {
-            BasicValueEnum::IntValue(v) => match ty {
-                LLVMType::I64(_) => LLVMValue::I64(v),
+            BasicValueEnum::IntValue(v) => match v.get_type().get_bit_width() {
+                1 => LLVMValue::Bool(v),
+                64 => LLVMValue::I64(v),
                 _ => unreachable!(),
             },
-            BasicValueEnum::FloatValue(v) => match ty {
-                LLVMType::F64(_) => LLVMValue::F64(v),
-                _ => unreachable!(),
-            },
-            BasicValueEnum::PointerValue(v) => match ty {
-                LLVMType::Pointer(pty) => {
-                    LLVMValue::Pointer(LLVMPointerValue::from_pointer_value(v, pty))
-                }
-                _ => unreachable!(),
-            },
+            BasicValueEnum::FloatValue(v) => LLVMValue::F64(v),
+            BasicValueEnum::PointerValue(v) => {
+                LLVMValue::Pointer(LLVMPointerValue::from_pointer_value(v))
+            }
             _ => unreachable!(),
         }
     }
@@ -98,15 +93,19 @@ pub enum LLVMPointerValue<'ctx> {
 }
 
 impl<'ctx> LLVMPointerValue<'ctx> {
-    pub fn from_pointer_value(v: PointerValue<'ctx>, ty: &LLVMPointerType) -> Self {
-        match ty {
-            LLVMPointerType::Void(_) => LLVMPointerValue::Void(v),
-            LLVMPointerType::Bool(_) => LLVMPointerValue::Bool(v),
-            LLVMPointerType::I64(_) => LLVMPointerValue::I64(v),
-            LLVMPointerType::F64(_) => LLVMPointerValue::F64(v),
-            LLVMPointerType::Pointer(pty) => {
-                LLVMPointerValue::Pointer(Box::new(Self::from_pointer_value(v, pty)))
+    pub fn from_pointer_value(v: PointerValue<'ctx>) -> Self {
+        match v.get_type().get_element_type() {
+            AnyTypeEnum::VoidType(_) => LLVMPointerValue::Void(v),
+            AnyTypeEnum::IntType(ty) => match ty.get_bit_width() {
+                1 => LLVMPointerValue::Bool(v),
+                64 => LLVMPointerValue::I64(v),
+                _ => unreachable!(),
+            },
+            AnyTypeEnum::FloatType(_) => LLVMPointerValue::F64(v),
+            AnyTypeEnum::PointerType(_) => {
+                LLVMPointerValue::Pointer(Box::new(Self::from_pointer_value(v)))
             }
+            _ => unreachable!(),
         }
     }
 
@@ -164,18 +163,6 @@ impl<'ctx> LLVMType<'ctx> {
             Bool(v) | I64(v) => v.fn_type(&llvm_param_types, is_var_args),
             F64(v) => v.fn_type(&llvm_param_types, is_var_args),
             Pointer(v) => v.fn_type(&llvm_param_types, is_var_args),
-        }
-    }
-
-    pub fn as_ref_type(&self, ptr: PointerType<'ctx>) -> LLVMPointerType {
-        use LLVMType::*;
-
-        match self {
-            Void(_) => LLVMPointerType::Void(ptr),
-            Bool(_) => LLVMPointerType::Bool(ptr),
-            I64(_) => LLVMPointerType::I64(ptr),
-            F64(_) => LLVMPointerType::F64(ptr),
-            Pointer(ty) => LLVMPointerType::Pointer(Box::new(ty.clone())),
         }
     }
 }

@@ -98,8 +98,7 @@ impl<'ctx, 'md> FnStmtNode {
             builder.build_store(ptr, arg_val);
 
             // Insert value to var_map
-            let ptr_ty = arg_ty.as_ref_type(ptr.get_type());
-            let ptr_val = LLVMPointerValue::from_pointer_value(ptr, &ptr_ty);
+            let ptr_val = LLVMPointerValue::from_pointer_value(ptr);
             vtb.insert(arg_name.to_string(), LLVMValue::Pointer(ptr_val));
         }
 

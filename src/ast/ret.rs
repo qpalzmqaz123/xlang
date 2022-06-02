@@ -26,7 +26,14 @@ impl<'ctx, 'md, 'bd> ReturnNode {
         use LLVMValue::*;
 
         if let Some(ret) = &self.ret {
-            let ret_val = ret.compile(ctx, module, builder, vtb, ret_ty)?;
+            let ret_val = ret
+                .compile(ctx, module, builder, vtb)?
+                .ok_or(error::semanteme!(
+                    self.position.module,
+                    self.position.line,
+                    self.position.col,
+                    "Return value cannot be void",
+                ))?;
             if ret_ty != &ret_val.get_type() {
                 return Err(error::semanteme!(
                     self.position.module,
