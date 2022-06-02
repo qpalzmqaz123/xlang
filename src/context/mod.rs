@@ -19,7 +19,7 @@ use crate::{
 
 pub use var_table::VarTable;
 
-use self::traits::{AddLLVMGlobal, LLVMMulti, LLVMSingle};
+use self::traits::{AddLLVMGlobal, LLVMParamMulti, LLVMRetSingle};
 
 #[macro_export]
 macro_rules! add_global_function {
@@ -107,8 +107,8 @@ impl Context {
 
     pub fn add_global_c_function<A, R>(&mut self, name: &str, addr: usize) -> Result<()>
     where
-        A: LLVMMulti<'static>,
-        R: LLVMSingle<'static>,
+        A: LLVMParamMulti<'static>,
+        R: LLVMRetSingle<'static>,
     {
         // Convert context lifetime to static
         let ctx: &'static InkwellContext = unsafe { std::mem::transmute(&self.ll_ctx) };
@@ -139,8 +139,8 @@ impl Context {
         wrapper_c_fn_addr: usize,
     ) -> Result<()>
     where
-        A: LLVMMulti<'static>,
-        R: LLVMSingle<'static>,
+        A: LLVMParamMulti<'static>,
+        R: LLVMRetSingle<'static>,
     {
         // Convert context lifetime to static
         let ctx: &'static InkwellContext = unsafe { std::mem::transmute(&self.ll_ctx) };
@@ -193,13 +193,10 @@ impl Context {
         let fn_ret = builder
             .build_call(rust_fn_val, &params, "")
             .try_as_basic_value()
-            .left()
-            .ok_or(error::internal!(
-                "Failed to convert callable value to basic value"
-            ))?;
+            .left();
 
         // Return result
-        builder.build_return(Some(&fn_ret));
+        builder.build_return(fn_ret.as_ref().map(|v| v as _));
 
         // Save closure
         self.closure_list.push(boxed_closure_any);
