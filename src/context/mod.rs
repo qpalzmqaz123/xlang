@@ -52,6 +52,8 @@ pub struct Context {
     closure_list: Vec<Box<dyn Any>>,
 }
 
+unsafe impl Send for Context {}
+
 impl Context {
     pub fn new() -> Result<Self> {
         // Only run on 64-bit systems
