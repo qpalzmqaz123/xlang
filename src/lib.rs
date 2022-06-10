@@ -6,4 +6,5 @@ mod parser;
 
 pub use ast::*;
 pub use context::Context;
+pub use inkwell;
 pub use lexer::*;
