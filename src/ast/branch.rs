@@ -49,7 +49,7 @@ impl<'ctx, 'md, 'bd> BranchNode {
                     self.position.module,
                     self.position.line,
                     self.position.col,
-                    "Expected a integer expression"
+                    "Expected a bool expression"
                 ))
             }
         }
