@@ -29,8 +29,19 @@ impl<'ctx, 'md, 'bd> FnCallNode {
             "Undefined function",
         ))?;
 
+        // Verify argument count
+        if fn_val.count_params() != self.args.len() as u32 {
+            return Err(error::semanteme!(
+                self.fn_name.position.module,
+                self.fn_name.position.line,
+                self.fn_name.position.col,
+                "Function call argument count mismatch",
+            ));
+        }
+
         let mut args = vec![];
-        for arg in &self.args {
+        for (index, arg) in self.args.iter().enumerate() {
+            // Compile argument
             let val = arg
                 .compile(ctx, module, builder, vtb)?
                 .ok_or(error::semanteme!(
@@ -39,6 +50,24 @@ impl<'ctx, 'md, 'bd> FnCallNode {
                     self.fn_name.position.col,
                     "Argument of function call cannot be void",
                 ))?;
+
+            // Verify argument type
+            let arg_val = fn_val.get_nth_param(index as u32).ok_or(error::semanteme!(
+                self.fn_name.position.module,
+                self.fn_name.position.line,
+                self.fn_name.position.col,
+                "Function call argument count mismatch, unreachable",
+            ))?;
+
+            if LLVMValue::from_basic_value_enum(arg_val).get_type() != val.get_type() {
+                return Err(error::semanteme!(
+                    self.fn_name.position.module,
+                    self.fn_name.position.line,
+                    self.fn_name.position.col,
+                    "Function call argument type mismatch",
+                ));
+            }
+
             args.push(val.into());
         }
 
