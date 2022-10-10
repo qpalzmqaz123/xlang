@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm3-7"] }
+inkwell = { git = "https://github.com/TheDan64/inkwell", rev = "25b9fc5870370211504e874e7c81dc53573bca79", features = ["llvm3-7"] }
 
 thiserror = { version = "1.0.30", default-features = false }
 log = { version = "0.4", default-features = false }
